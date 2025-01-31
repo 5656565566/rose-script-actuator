@@ -1,0 +1,64 @@
+name: Build and Release Python Application
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install poetry
+        poetry install
+        poetry run python -m pip install pyinstaller
+
+    - name: Build Executable
+      run: |
+        poetry run pyinstaller -F actuator/__main__.py \
+          --icon logo.ico \
+          --collect-all paddleocr \
+          --collect-all pyclipper \
+          --collect-all imghdr \
+          --collect-all skimage \
+          --collect-all imgaug \
+          --collect-all scipy.io \
+          --collect-all lmdb \
+          --collect-all paddle \
+          --collect-all lupa
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/__main__
+        asset_name: application-${{ github.ref_name }}.exe
+        asset_content_type: application/octet-stream

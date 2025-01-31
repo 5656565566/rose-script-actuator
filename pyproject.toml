@@ -1,14 +1,9 @@
 [tool.poetry]
 name = "rose-script-actuator"
-version = "0.1.0"
+version = "0.0.1"
 description = ""
 authors = ["5656565566 <2393963330@qq.com>"]
 readme = "README.md"
-
-[[tool.poetry.source]]
-name = "mirrors"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
-priority = "default"
 
 [tool.poetry.dependencies]
 python = "^3.10"
