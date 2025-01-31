@@ -38,9 +38,8 @@ class Platform(ABC):
     def __init__(self):
         self.devices: T = self.get_all_device()
     
-    @abstractmethod
     def get_platform_name(self):
-        raise NotImplementedError
+        return __class__.__name__
     
     @abstractmethod
     def get_platform_decription(self):
@@ -58,7 +57,15 @@ class Platform(ABC):
     @abstractmethod
     def select_deivce(self, name: str):
         raise NotImplementedError
+
+            
+platforms: list[Type[Platform]] = []
+
+def register_platform(platform: Type[Platform]):
+    platforms.append(platform)
     
+    
+class Deivces:
     def __call__(self, *args):
         
         _args = list(args)
@@ -78,8 +85,3 @@ class Platform(ABC):
             except:
                 
                 return False, f"调用 {function_name} 错误\n{get_parameters_details(func)}"
-            
-platforms: list[Type[Platform]] = []
-
-def register_platform(platform: Type[Platform]):
-    platforms.append(platform)

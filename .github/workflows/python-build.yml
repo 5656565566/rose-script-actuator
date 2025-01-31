@@ -115,9 +115,9 @@ jobs:
         tag_name: ${{ github.ref_name }}
         name: "Release ${{ github.ref_name }}"
         body: |
-          Multi-platform build includes:
-          - Windows Executable (.exe)
-          - Linux Binary
+          可直接下载:
+          - Windows 可执行程序 (.exe)
+          - Linux 可执行程序
         files: |
           actuator-${{ github.ref_name }}-windows-amd64.exe
           actuator-${{ github.ref_name }}-linux-amd64

@@ -2,22 +2,22 @@ from typing import Type
 
 from base import Platform, platforms
 
-import _thread
+from .adb import AdbPlatform as AdbPlatform
 
 class DevicesManager:
     def __init__(self):
-        self.devices_list: list[Type[Platform]] = platforms
+        self.platforms_list: list[Type[Platform]] = []
+        
+    def init_platforms(self):
+        for platform in platforms:
+            self.platforms_list.append(platform())
     
     def get_devices(self):
-        
         devices = {}
-        
         return devices
     
     def select(self, name: str):
         pass
     
-    def execute(self, function: str, *args):
-        for device in self.devices_list:
-            if hasattr(device, function):
-                _thread.start_new_thread(getattr(device, function), args)
+    def __call__(self, function: str, *args):
+        pass
