@@ -1,0 +1,71 @@
+log_level: DEBUG
+
+wifiadb: []
+
+stop_key: F9
+start_key: F10
+
+mapping:
+
+  fileRename: 文件重命名
+  folderCreate: 创建文件夹
+  fileMove: 文件移动
+  pathSplicing: 路径拼接
+  formatString: 格式化字符串
+  filePathRemove: 文件删除
+
+  screenResolution: 获取屏幕分辨率
+
+  screenshot2OcrResult: 截图找字结果
+  img2OcrResult: 任意图片找字结果
+  ocrResult2String: 找字结果转文本
+  ocrResult2Point: 找字结果转点
+  textInOcrResult: 找字结果判断是否存在
+
+  ocrResult2PointIn: 找字结果包含转点
+  textInOcrResultIn: 找字结果判断是否包含
+
+  StringToNumber: 字符转数字
+
+  screenshotAndCrop: 截图剪切
+  imgAndCrop: 图片剪切
+
+  screenshotAndTemplate2PointEasy: 简单截图找点
+  imgFindtemplate2PointEasy: 简单图片找点
+  screenshotAndTemplate2Point: 截图找点
+  imgFindtemplate2Point: 图片找点
+
+  screenshotAndTemplateAndClickEasy: 简单截图点击
+  screenshotAndTemplateAndClick: 截图点击
+
+  screenshotFile: 返回截图文件名
+  screenshot: 截图返回文件名
+
+  imgFindColor: 图片着色
+
+  gameDoubleClick: 游戏双击
+  DoubleClick: 双击
+  findColor: 找色
+  
+  clickByText: 通过显示文本点击
+  clickByAny: 通过条件点击
+  
+  gameMouseClick: 游戏鼠标原地点击
+  mouseClick: 鼠标原地点击
+
+  openApp: 打开应用
+  gameClick: 游戏点击
+  click: 点击
+  textInput: 文本输入
+  gameSwipe: 游戏拖拽
+  swipe: 拖拽
+  keyevent: 按键
+  gameKeyevent: 游戏按键
+  hotkey: 热键
+
+  activateWindow: 激活窗口
+  getMouse: 鼠标位置
+  appName: 前台应用名
+
+  shell: 终端命令
+  selectDevice: 选择设备

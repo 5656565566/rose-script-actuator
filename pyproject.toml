@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "rose-script-actuator"
+version = "0.1.0"
+description = ""
+authors = ["5656565566 <2393963330@qq.com>"]
+readme = "README.md"
+
+[[tool.poetry.source]]
+name = "mirrors"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+priority = "default"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pyautogui = "^0.9.54"
+adbutils = "^2.7.2"
+opencv-python = "^4.10.0.84"
+paddleocr = "^2.8.0"
+pyyaml = "^6.0.1"
+loguru = "^0.7.2"
+pydantic = "^2.8.2"
+pydantic-core = "^2.20.1"
+annotated-types = "^0.7.0"
+psutil = "^6.0.0"
+httpx = {extras = ["asyncio"], version = "^0.28.1"}
+paddlepaddle = "^2.6.2"
+httpcore = {extras = ["asyncio"], version = "^1.0.7"}
+keyboard = "^0.13.5"
+pydirectinput = "^1.0.4"
+pyperclip = "^1.9.0"
+selenium = "^4.26.1"
+lupa = "^2.4"
+textual = "^1.0.0"
+win32-setctime = "^1.2.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
