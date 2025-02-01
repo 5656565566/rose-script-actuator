@@ -3,9 +3,11 @@ from typing import Callable
 
 import copy, time, inspect
 
-from .model import *
 from log import logger
 from config import get_config
+from consts import devices_manager
+
+from .model import *
 
 def is_float(s):
     try:
@@ -129,7 +131,6 @@ class Parser:
             return BinOp(left=left, op=Token(TokenType.EQ, '=='), right=None)
         
         else:
-            # breakpoint()
             self.error(2, f"无法解析的表达式 得到了非预期的运算符 {token.token_type}")
             
     def if_statement(self):
@@ -415,7 +416,6 @@ class Parser:
         elif self.current_token.token_type == TokenType.CONTINUE:
             return self.continue_statement()
         
-        # breakpoint()
         self.error(3, f"错误的语法结构体 {self.current_token.token_type}")
 
 def is_nested(args):
@@ -471,12 +471,63 @@ def dynamic_call(func, args):
     
     return result
 
+def output_result(output, callable: Callable):
+    def wrapper(*args, **kwargs):
+        result = callable(*args, **kwargs)
+        if isinstance(result, tuple):
+            output(result[0])
+            return result[1:]
+        else:
+            output(result)
+            
+    return wrapper
 
+class InternalMethods:
+    def __init__(
+        self,
+        device,
+        path: Path,
+        output: Callable,
+        notify: Callable
+    ) -> None:
+        
+        self.device = device
+        self.path = path
+        self.output = output
+        self.notify = notify
+    
+    def select_device(self, name: str):
+        devices_manager.init_platforms()
+        devices_manager.select_devices(name)
+        
+        if devices_manager.device == None:
+            self.notify(f"尝试切换设备 {name} 但它不存在", title="一个脚本执行错误", severity="error")
+            
+        self.device = devices_manager.device
+    
+    def get(self, name: str):
+        
+        if name == "select_device":
+            return self.select_device
+        
+        if not self.device:
+            raise RunException("请先使用 call select_device(设备名称) 选择设备 !")
+        
+        if not hasattr(self.device, name):
+            raise RunException(f"设备不存在 {name} 操作 !")
+        
+        return output_result(self.output, getattr(self.device, name))
 
 class Interpreter:
     """解释器"""
 
-    def __init__(self, parser: Parser, path: Path):
+    def __init__(
+        self,
+        parser: Parser,
+        path: Path,
+        updata_buffer_handler: Callable,
+        notify: Callable,
+    ):
         self.path = path.parent
         self.parser = parser
         self.variables = {}
@@ -484,8 +535,8 @@ class Interpreter:
 
         self.used_func: list[UserFunction] = []
         self.foreach: list[Foreach] = []
-        self.updata_buffer_handler: Callable = None
-        self.devices = None
+        self.updata_buffer_handler: Callable = updata_buffer_handler
+        self.internal_methods = InternalMethods(devices_manager.device, path, updata_buffer_handler, notify)
         self.stop = False
 
     def get_variables(self, name: str):
@@ -634,7 +685,7 @@ class Interpreter:
         
         func_name = mapping.get(node.func_name, node.func_name)
         
-        if func := self.devices.device_execute(func_name, self.path):
+        if func := self.internal_methods.get(func_name):
             args = [self.visit(arg) for arg in node.args]
             try:
                 dynamic_call(func, args)
@@ -820,7 +871,7 @@ class Interpreter:
         
         func_name = mapping.get(node.function.func_name, node.function.func_name)
         
-        if node.function and (func := self.devices.device_execute(func_name, self.path)):
+        if node.function and (func := self.internal_methods.get(func_name)):
             
             args = [self.visit(arg) for arg in node.function.args]
             try:
@@ -843,9 +894,6 @@ class Interpreter:
         except BreakException:
             pass
 
-        for app in self.devices.windows.execute.applications.values():
-            app.force_close()
-
 
 class ScriptFileRuntime:
     def __init__(
@@ -858,24 +906,24 @@ class ScriptFileRuntime:
         self.updata_buffer_handler: Callable = None
         self.user_input_callback: Callable = user_input_callback
         self.notify: Callable = notify
-        
+    
     def run(self, script: str, name: str, path: Path):
-        
-        if not "name" in script:
-            script = f"name {name}\n{script}"
-        
+        try:
+            self.run_script(script, name, path)
+        except Exception as e:
+            return e
+    
+    def run_script(self, script: str, name: str, path: Path):
         lexer = Lexer(script)
         parser = Parser(lexer)
-        self.interpreter = Interpreter(parser, path)
-        
-        self.interpreter.updata_buffer_handler = self.updata_buffer_handler
+        self.interpreter = Interpreter(parser, path, self.updata_buffer_handler, self.notify)
         
         parser.parse()
             
         if parser != "":
             self.name = parser.name
         
-        logger.opt(colors=True).debug(f"脚本 <g>{self.name}</g> 执行开始")
+        logger.debug(f"脚本 {self.name} 执行开始")
         try:
             self.interpreter.interpret()
         
@@ -895,15 +943,8 @@ class ScriptFileRuntime:
             
             return e
             
-            
         self.interpreter.stop = True
-        logger.opt(colors=True).debug(f"脚本 <g>{self.name}</g> 执行完毕")
+        logger.debug(f"脚本 {self.name} 执行完毕")
     
     def set_updata_buffer_handler(self, handler: Callable):
         self.updata_buffer_handler = handler
-    
-    def stop(self):
-        self.interpreter.stop = True
-        
-    def is_run(self):
-        return not self.interpreter.stop

@@ -69,6 +69,7 @@ class Devices:
         self.name = name
     
     def __call__(self, *args):
+        # TODO 此处重构为更好的方式
         _args = list(args)
         
         function_name = _args.pop(0) if _args else None

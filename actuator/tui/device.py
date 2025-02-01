@@ -133,6 +133,5 @@ class DevicesScreen(Screen):
     
     @staticmethod
     def get_devices() -> dict[str, list[Type[Devices]]]:
-        
         devices_manager.init_platforms()
         return devices_manager.get_devices()

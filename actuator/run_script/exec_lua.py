@@ -49,24 +49,34 @@ class LuaPath:
         self._path = self._path / path
         return self._path
 
+def output_result(output, callable: Callable):
+    def wrapper(*args, **kwargs):
+        result = callable(*args, **kwargs)
+        if isinstance(result, tuple):
+            output(result[0])
+            return result[1:]
+        else:
+            output(result)
+            
+    return wrapper
+
 class LuaDevice:
     def __init__(self, device, output):
         self.device = device
         self.output = output
     
-    def output_result(self, callable: Callable):
-        def wrapper(*args, **kwargs):
-            result = callable(*args, **kwargs)
-            if isinstance(result, tuple):
-                self.output(result[0])
-                return result[1:]
-            else:
-                self.output(result[0])
-        return wrapper
+    def update_device(self, device):
+        self.device = device
     
-    def __getattribute__(self, name: str):
-        device_result = getattr(object.__getattribute__(self, "device"), name)
-        return object.__getattribute__(self, "output_result")(device_result)
+    def __getitem__(self, name: str):
+        
+        if not self.device:
+            raise LuaError("请先使用 select_device 选择设备 !")
+        
+        if not hasattr(self.device, name):
+            raise LuaError(f"设备不存在 {name} 操作 !")
+        
+        return output_result(self.output, getattr(self.device, name))
 
 class LuaScriptRuntime:
     
@@ -102,7 +112,6 @@ class LuaScriptRuntime:
         self.buffer = VirtualFile()
         self.user_input_callback = user_input_callback
         self.notify = notify
-        self.device = None
     
     def set_updata_buffer_handler(self, handler: Callable):
         self.buffer.updata_buffer_handler = handler
@@ -111,8 +120,13 @@ class LuaScriptRuntime:
         self.lua.globals()["Requests"] = Requests
     
     def select_device(self, name: str):
+        devices_manager.init_platforms()
         devices_manager.select_devices(name)
-        self.device = devices_manager.device
+        
+        if devices_manager.device == None:
+            self.notify(f"尝试切换设备 {name} 但它不存在", title="一个脚本执行错误", severity="error")
+        
+        self.lua.globals()["device"].update_device(devices_manager.device)
     
     def init_lua(self):
         self.lua = lupa.LuaRuntime()
@@ -132,7 +146,7 @@ class LuaScriptRuntime:
         self.lua.globals()["sleep"] = self.sleep_handler
         
         self.lua.globals()["select_device"] = self.select_device
-        self.lua.globals()["device"] = LuaDevice(self.device, self.output_handler)
+        self.lua.globals()["device"] = LuaDevice(None, self.output_handler)
         
         self.register_func()
 

@@ -17,7 +17,7 @@ import time
 from log import logger
 from run_script import LuaScriptRuntime, ScriptFileRuntime
 from typing import Callable
-from consts import threadings, devices_manager
+from consts import threadings, devices_manager # TODO 实现多同类设备运行
 
 class LogScreen(ModalScreen):
     DEFAULT_CSS = """
