@@ -1,9 +1,7 @@
-from typing import Type, TypeVar
+from typing import Type
 from abc import ABC, abstractmethod
 
 import inspect
-
-T = TypeVar("T")
 
 kind_translation_str = {
     "POSITIONAL_ONLY": "仅限位置参数",
@@ -34,24 +32,24 @@ def get_parameters_details(func):
 
 class Platform(ABC):
     
+    devices: list[Type["Devices"]] = []
+    
     @abstractmethod
     def __init__(self):
-        self.devices: T = self.get_all_device()
+        raise NotImplementedError
     
-    def get_platform_name(self):
+    @property
+    @abstractmethod
+    def platform_name(self):
         return __class__.__name__
     
+    @property
     @abstractmethod
-    def get_platform_decription(self):
+    def platform_decription(self):
         raise NotImplementedError
     
     @abstractmethod
     def get_all_device(self):
-        raise NotImplementedError
-    
-    @staticmethod
-    @abstractmethod
-    def get_device_type():
         raise NotImplementedError
     
     @abstractmethod
@@ -65,22 +63,27 @@ def register_platform(platform: Type[Platform]):
     platforms.append(platform)
     
     
-class Deivces:
+class Devices:
+    
+    def __init__(self, name: str):
+        self.name = name
+    
     def __call__(self, *args):
-        
         _args = list(args)
         
         function_name = _args.pop(0) if _args else None
         if function_name is None:
             return False, None
         
+        if function_name[0] == "_":
+            return False, None
+        
         if hasattr(self, function_name):
-            
             func = getattr(self, function_name)
             
             try:
                 if _args:
-                    return True, func(_args)
+                    return True, func(args)
                 return True, func()
             except:
                 

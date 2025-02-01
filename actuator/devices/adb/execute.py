@@ -1,13 +1,16 @@
-from adbutils import AdbDevice
+from adbutils import AdbDevice as _AdbDevice
 from random import randint
 from pathlib import Path
 from typing import Union
 from io import BytesIO
 
-from config import get_config
+from base import Devices
+from config import get_config, PATH_WORKING
 
-class Execute:
-    def __init__(self, device: AdbDevice) -> None:
+class AdbDevice(Devices):
+    def __init__(self, name: str, device: _AdbDevice) -> None:
+        super().__init__(name)
+        
         self.device = device
         self.random = get_config().extra.get("random", True)
         self.screenshot_file = BytesIO()
@@ -15,9 +18,6 @@ class Execute:
     def _offset(self, offset = None):
         """偏移"""
         return randint(-offset, offset)
-    
-    def gameClick(self, x: int, y: int) -> int:
-        return self.click(x, y)
     
     def click(self, x: int, y: int) -> int:
 
@@ -70,19 +70,22 @@ class Execute:
         return f"{self.device} 前台 APP {res}", res
         
     
-    def screenshot(self, filePath: Path):
+    def screenshot(self, filePath: Path= None):
         
         save_object = self.screenshot_file
         
         if get_config().save_screenshot:
+            save_object = PATH_WORKING / f"{self.name}.png"
+            
+        if filePath:
             save_object = filePath
         
         try:
             self.device.screenshot().save(save_object)
         except:
-            return f"无法为 {self.device.serial} 截图 请检查设备状态", None
+            return f"无法为 {self.device.serial} 截图 请检查设备状态", False
         else:
             if get_config().save_screenshot:
-                return f"{self.device} 截图并保存到了 {filePath}"
+                return f"{self.device} 截图并保存到了 {save_object}"
             else:
                 return f"对 {self.device} 进行截图"

@@ -278,7 +278,7 @@ class RunScreen(Screen):
         yield Markdown("# 选择脚本")
 
         if not self.lua_files:
-            yield Static("[red]未找到.lua文件[/red] 使用 [b]H[/b] 返回主页", classes="error")
+            yield Static("[red]未找到任何脚本文件[/red] 使用 [b]H[/b] 返回主页", classes="error")
             return
 
         with ScrollableContainer(id="file-list", can_maximize=True):

@@ -3,7 +3,12 @@ from textual.binding import Binding
 from textual.containers import ScrollableContainer
 from textual.screen import Screen
 from textual.widgets import Button, Static, Footer, Markdown
+from textual import work
 
+from typing import Type
+
+from consts import devices_manager
+from base import Devices
 
 class DevicesScreen(Screen):
     DEFAULT_CSS = """
@@ -63,9 +68,9 @@ class DevicesScreen(Screen):
                 yield Markdown(f"### {devices}")
                 for device in self.devices[devices]:
                     yield Button(
-                        device,
+                        device.name,
                         classes="file-btn",
-                        action=f"screen.run_script({str(device)!r})",
+                        action=f"screen.device_test({device.name!r})",
                     )
                 if len(self.devices[devices]) == 0:
                     yield Button(
@@ -89,9 +94,9 @@ class DevicesScreen(Screen):
                     for device in self.devices[devices]:
                         list_container.mount(
                             Button(
-                                device,
+                                device.name,
                                 classes="file-btn",
-                                action=f"screen.run_script({str(device)!r})",
+                                action=f"screen.device_test({device.name!r})",
                             )
                         )
                     if len(self.devices[devices]) == 0:
@@ -113,7 +118,21 @@ class DevicesScreen(Screen):
             )
             return None
 
+    @work(thread= True)
+    def device_test(self, device: str):
+        devices_manager.select_devices(device)
+        result = devices_manager.device.screenshot(filePath= f"{device}.png")
+        if len(result) == 2:
+            self.app.call_from_thread(self.notify, f"设备 {device} 截图失败", severity="error")
+        else:
+            self.app.call_from_thread(self.notify, f"设备 {device} 截图成功 保存到 {device}.png!")
+    
+    def action_device_test(self, device: str):
+        self.notify(f"尝试为设备 {device} 截图 !")
+        self.device_test(device)
+    
     @staticmethod
-    def get_devices() -> dict[str, str]:
+    def get_devices() -> dict[str, list[Type[Devices]]]:
         
-        return {"Windows\n在 Windows 环境下运行可启用" : ["本机"], "Android\n通过 USB 连接设备 或 配置文件配置通过网络的 adb 设备 添加" : [], "浏览器\n通过在当前目录放置 msedgedriver.exe 等浏览器驱动添加": []}
+        devices_manager.init_platforms()
+        return devices_manager.get_devices()

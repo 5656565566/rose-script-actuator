@@ -1,0 +1,1 @@
+from .devices import WindowsPlatform as WindowsPlatform

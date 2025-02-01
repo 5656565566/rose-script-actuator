@@ -1,7 +1,7 @@
 from tui import TuiApp
 from config import read_conifg, get_config
 from log import logger
-from consts import threadings, devices_manager
+from consts import threadings
 
 from typing import Callable
 
@@ -41,8 +41,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     read_conifg()
-    
-    devices_manager.init_platforms()
-    
     main()
     exit()

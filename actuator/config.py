@@ -7,6 +7,9 @@ import yaml
 from log import logger, set_log_level
 
 PATH_WORKING = Path.cwd()
+"""
+当前工作目录路径
+"""
 
 class YamlConfig:
     def __init__(self, filepath):

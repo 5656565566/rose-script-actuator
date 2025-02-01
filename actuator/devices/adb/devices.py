@@ -6,7 +6,7 @@ from base import Platform, register_platform
 
 import psutil
 
-from .execute import Execute
+from .execute import AdbDevice
 
 def find_process_using_port(port: int) -> bool:
     """查询指定端口被哪个进程占用
@@ -56,6 +56,9 @@ def find_process_using_port(port: int) -> bool:
 class AdbPlatform(Platform):
     
     def __init__(self):
+        
+        self.devices: list[AdbDevice] = []
+        
         try:
             self.adbclient = AdbClient()
             
@@ -88,18 +91,26 @@ class AdbPlatform(Platform):
 
         for device in self.adbclient.device_list():
             
-            self.executes[device.serial] = Execute(device)
+            self.devices.append(AdbDevice(device.serial, device))
             
             logger.opt(colors=True).debug(f"Android device: <g>{device.serial}</g>")
     
-    def get_platform_decription(self):
-        return
+    @property
+    def platform_decription(self):
+        return "通过 USB 连接设备 或 配置文件配置通过网络的 adb 设备 添加"
+    
+    @property
+    def platform_name(self):
+        return "安卓"
     
     def get_all_device(self):
-        return
-    
-    def get_device_type():
-        return
+        
+        self.devices = []
+        
+        for device in self.adbclient.device_list():
+            self.devices.append(AdbDevice(device.serial, device))
+        
+        return self.devices
     
     def select_deivce(self, name: str):
         return
