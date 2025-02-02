@@ -909,7 +909,7 @@ class ScriptFileRuntime:
     
     def run(self, script: str, name: str, path: Path):
         try:
-            self.run_script(script, name, path)
+            return self.run_script(script, name, path)
         except Exception as e:
             return e
     
@@ -923,13 +923,14 @@ class ScriptFileRuntime:
         if parser != "":
             self.name = parser.name
         
-        logger.debug(f"脚本 {self.name} 执行开始")
+        logger.debug(f"脚本 {name} 执行开始")
         try:
             self.interpreter.interpret()
         
         except RunException as e:
             logger.error(f"发生错误 {e.args[0]}")
-            return e
+            self.updata_buffer_handler(f"发生错误 {e.args[0]}\n")
+            return f"{e.args[0]}"
         
         except Exception as e:
             import traceback
@@ -941,10 +942,9 @@ class ScriptFileRuntime:
             self.updata_buffer_handler(f"发生错误 {e.args[0]}\n")
             self.updata_buffer_handler(f"错误来源 行数: {self.interpreter.parser.lexer.line}")
             
-            return e
+            return f"{e.args[0]}\n行数: {self.interpreter.parser.lexer.line}"
             
-        self.interpreter.stop = True
-        logger.debug(f"脚本 {self.name} 执行完毕")
+        logger.debug(f"脚本 {name} 执行完毕")
     
     def set_updata_buffer_handler(self, handler: Callable):
         self.updata_buffer_handler = handler
