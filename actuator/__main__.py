@@ -4,6 +4,7 @@ from log import logger
 from consts import threadings
 
 from typing import Callable
+from platform import system
 
 import keyboard
 import ctypes
@@ -41,5 +42,9 @@ def main() -> None:
 
 if __name__ == "__main__":
     read_conifg()
+    
+    if system() == "Windows":
+        ctypes.windll.kernel32.SetConsoleTitleW("脚本执行器")
+    
     main()
     exit()

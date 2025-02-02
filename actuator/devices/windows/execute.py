@@ -305,8 +305,10 @@ class WindowsDevice(Devices):
     def get_all_windows_titles(self):
         return gw.getAllTitles()
     
+    def get_screenshot(self) -> bytes:
+        return self.screenshot_file.getvalue()
+    
     def screenshot(self, filePath: Path= None) -> Path:
-        
         save_object = self.screenshot_file
         
         if get_config().save_screenshot:
@@ -317,7 +319,11 @@ class WindowsDevice(Devices):
         
         try:
             screenshot = pyautogui.screenshot()
-            screenshot.save(save_object)
+            screenshot.save(save_object, "png")
+            
+            if isinstance(save_object, BytesIO):
+                return "Windows 截图并保存到内存", save_object.getvalue()
+            
             return f"Windows 的截图并保存到了 {save_object}"
         except Exception as e:
             return f"无法为 Windows 设备 截图 请检查设备状态 {e}", False

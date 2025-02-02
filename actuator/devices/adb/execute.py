@@ -68,7 +68,9 @@ class AdbDevice(Devices):
         res = self.device.shell("dumpsys activity activities | grep \"mResumedActivity\"", timeout=2)
         
         return f"{self.device} 前台 APP {res}", res
-        
+    
+    def get_screenshot(self) -> bytes:
+        return self.screenshot_file.getvalue()
     
     def screenshot(self, filePath: Path= None):
         
@@ -82,10 +84,11 @@ class AdbDevice(Devices):
         
         try:
             self.device.screenshot().save(save_object)
+            
+            if isinstance(save_object, BytesIO):
+                return f"对 {self.device} 进行截图并保存到内存", save_object.getvalue()
+            
         except:
             return f"无法为 {self.device.serial} 截图 请检查设备状态", False
         else:
-            if get_config().save_screenshot:
-                return f"{self.device} 截图并保存到了 {save_object}"
-            else:
-                return f"对 {self.device} 进行截图"
+            return f"{self.device} 截图并保存到了 {save_object}"

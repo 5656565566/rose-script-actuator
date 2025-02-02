@@ -6,6 +6,7 @@ import copy, time, inspect
 from log import logger
 from config import get_config
 from consts import devices_manager
+from utils.file import FileHelper
 
 from .model import *
 
@@ -482,7 +483,18 @@ def output_result(output, callable: Callable):
             
     return wrapper
 
+def pathSplicing(*paths: list) -> str:
+    """路径拼接"""
+    paths = [str(path) for path in paths]
+    return "/".join(paths)
+
+def formatString(*paths: list) -> str:
+    """格式化字符串"""
+    paths = [str(path) for path in paths]
+    return "".join(paths)
+
 class InternalMethods:
+    
     def __init__(
         self,
         device,
@@ -495,6 +507,16 @@ class InternalMethods:
         self.path = path
         self.output = output
         self.notify = notify
+        
+        self.methods_maps = {
+            "select_device": self.select_device,
+            "fileMove" : FileHelper.file_move,
+            "fileRename" : FileHelper.file_rename,
+            "folderCreate" : FileHelper.folder_create,
+            "pathSplicing" : pathSplicing,
+            "formatString" : formatString,
+            
+        }
     
     def select_device(self, name: str):
         devices_manager.init_platforms()
@@ -507,16 +529,16 @@ class InternalMethods:
     
     def get(self, name: str):
         
-        if name == "select_device":
-            return self.select_device
+        if method := self.methods_maps.get(name):
+            return method
         
         if not self.device:
             raise RunException("请先使用 call select_device(设备名称) 选择设备 !")
         
-        if not hasattr(self.device, name):
-            raise RunException(f"设备不存在 {name} 操作 !")
+        if hasattr(self.device, name):
+            return output_result(self.output, getattr(self.device, name))
         
-        return output_result(self.output, getattr(self.device, name))
+        raise RunException(f"设备不存在 {name} 操作 !")
 
 class Interpreter:
     """解释器"""
@@ -530,7 +552,7 @@ class Interpreter:
     ):
         self.path = path.parent
         self.parser = parser
-        self.variables = {}
+        self.variables = {"work_path": path}
         self.user_func: dict[str, UserFunction] = {}
 
         self.used_func: list[UserFunction] = []
@@ -908,8 +930,11 @@ class ScriptFileRuntime:
         self.notify: Callable = notify
     
     def run(self, script: str, name: str, path: Path):
+        
+        script = f"name \"{name}\"\n" + script
+        
         try:
-            return self.run_script(script, name, path)
+            return self.run_script(script, name, path.parent)
         except Exception as e:
             return e
     

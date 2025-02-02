@@ -298,9 +298,8 @@ class RunScreen(Screen):
             )
             
             self.refresh()
-
             list_container = self.query_one("#file-list")
-            
+                
             list_container.remove_children()
             if self.lua_files:
                     for file in self.lua_files:
@@ -313,13 +312,16 @@ class RunScreen(Screen):
                         )
             list_container.refresh(layout=True)
             self.notify("成功刷新了脚本列表")
+                
             
         except Exception as e:
             self.notify(
-                f"未知错误：{str(e)}", 
+                f"请尝试返回主页重新进入", 
                 title="刷新失败", 
                 severity="error"
             )
+            
+            logger.warning(e)
     
     @work(thread=True)
     def run_lua_scripts(self, code: str, name: str, path: str):

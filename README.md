@@ -1,6 +1,8 @@
 # rose-script-actuator
 一个使用 lua 语言编写简单脚本的 自动化控制 支持 adb windows 等
 
+通过 textual 实现了简单的 TUI 实现跨平台的用户交互方式
+
 使用 Poetry 包管理器
 
 # 运行
@@ -13,7 +15,7 @@
 从当前仓库克隆代码，并安装依赖。
 
 ## 环境依赖
-安装 Python 3.10 及以上版本，并安装 Poetry 包管理器。可以参考以下链接进行安装：[Poetry 官方文档](https://python-poetry.org/docs/#installation)+
+安装 Python 3.10 及以上版本，并安装 Poetry 包管理器。可以参考以下链接进行安装：[Poetry 官方文档](https://python-poetry.org/docs/#installation)
 
  - 开发
 ```shell
