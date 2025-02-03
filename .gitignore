@@ -6,6 +6,7 @@ __pycache__/
 .vscode
 
 scripts
+config.yaml
 
 # C extensions
 *.so

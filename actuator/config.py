@@ -71,8 +71,10 @@ class Setting(BaseModel):
     
     stop_key: str = "F9"
     start_key: str = "F10"
+    
     mapping: dict = {}
     save_screenshot: bool = False
+    scripts_path: list[str] = []
     
     extra: dict = {}
 
