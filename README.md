@@ -31,3 +31,6 @@ poetry install --no-dev
 poetry run python actuator
 ```
 直接运行项目
+
+## 待实现的功能
+使用 Blockly图形化积木编程 编写脚本

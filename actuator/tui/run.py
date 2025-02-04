@@ -16,6 +16,8 @@ import time
 
 from log import logger
 from run_script import LuaScriptRuntime, ScriptFileRuntime
+from config import get_config
+
 from typing import Callable
 from consts import threadings, devices_manager # TODO 实现多同类设备运行
 
@@ -409,6 +411,10 @@ class RunScreen(Screen):
         """获取脚本文件列表"""
         lua_scripts = list(Path.cwd().glob("*.lua")) # lua 版本
         old_scripts = list(Path.cwd().glob("*.txt")) # 旧版本
+        
+        for path in get_config().scripts_path:
+            lua_scripts += list(Path(path).glob("*.lua"))
+            old_scripts += list(Path(path).glob("*.txt"))
         
         return lua_scripts + old_scripts
 

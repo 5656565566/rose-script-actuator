@@ -66,24 +66,35 @@ class WebDevice:
         """
         if self.name == "Edge":
             options = EdgeOptions()
-            service = EdgeService(executable_path=driver_path, log_output=os.devnull)
+            service = EdgeService(
+                executable_path=driver_path,
+                log_output=os.devnull
+            )
             logger.debug("使用 Edge 浏览器")
             self.browser = webdriver.Edge(service=service, options=options)
-            self.actions = ActionChains(self.browser)
+            
         elif self.name == "Chrome" and os.path.exists(driver_path):
             options = ChromeOptions()
-            service = ChromeService(executable_path=driver_path, log_output=os.devnull)
+            service = ChromeService(
+                executable_path=driver_path,
+                log_output=os.devnull
+            )
             logger.debug("使用 Chrome 浏览器")
             self.browser = webdriver.Chrome(service=service, options=options)
-            self.actions = ActionChains(self.browser)
+            
         elif self.name == "Firefox" and os.path.exists(driver_path):
             options = FirefoxOptions()
-            service = FirefoxService(executable_path=driver_path, log_output=os.devnull)
+            service = FirefoxService(
+                executable_path=driver_path,
+                log_output=os.devnull
+            )
             logger.debug("使用 Firefox 浏览器")
             self.browser = webdriver.Firefox(service=service, options=options)
-            self.actions = ActionChains(self.browser)
+            
         else:
             raise ValueError(f"不支持的浏览器名称或无效的驱动路径: {self.name}")
+        
+        self.actions = ActionChains(self.browser)
     
     def _init_test(self):
         if not self.browser:
@@ -98,9 +109,7 @@ class WebDevice:
             self._init_browser(self.driver_path)
             self.browser.get(url)
         
-        
-        
-        self.pages[url] = url
+        self.pages[name] = url
     
     def close_url(self, name: str):
         # 如果是最后一个网页关闭浏览器
@@ -198,7 +207,7 @@ class WebDevice:
         save_object = None
         
         if get_config().save_screenshot:
-            save_object = PATH_WORKING / "windows.png"
+            save_object = PATH_WORKING / f"{self.name}.png"
         
         if filePath:
             save_object = filePath
