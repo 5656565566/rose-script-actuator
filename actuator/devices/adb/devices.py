@@ -113,4 +113,7 @@ class AdbPlatform(Platform):
         return self.devices
     
     def select_deivce(self, name: str):
-        return
+        
+        for device in self.devices:
+            if device.name == name:
+                return device

@@ -1,0 +1,1 @@
+from .devices import WebDriverPlatform as WebDriverPlatform

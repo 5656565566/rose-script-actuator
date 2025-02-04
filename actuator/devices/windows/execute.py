@@ -309,7 +309,7 @@ class WindowsDevice(Devices):
         return self.screenshot_file.getvalue()
     
     def screenshot(self, filePath: Path= None) -> Path:
-        save_object = self.screenshot_file
+        save_object = None
         
         if get_config().save_screenshot:
             save_object = PATH_WORKING / "windows.png"
@@ -318,12 +318,13 @@ class WindowsDevice(Devices):
             save_object = filePath
         
         try:
-            screenshot = pyautogui.screenshot()
-            screenshot.save(save_object, "png")
+            screenshot = pyautogui.screenshot(self.screenshot_file)
             
-            if isinstance(save_object, BytesIO):
-                return "Windows 截图并保存到内存", save_object.getvalue()
+            if save_object:
+                screenshot.save(save_object, "png")
+                return f"对 Windows 截图并保存到 {save_object}", self.screenshot_file.getvalue()
             
-            return f"Windows 的截图并保存到了 {save_object}"
+            return f"对 Windows 的截图并保存到了 {save_object}", self.screenshot_file.getvalue()
+        
         except Exception as e:
             return f"无法为 Windows 设备 截图 请检查设备状态 {e}", False

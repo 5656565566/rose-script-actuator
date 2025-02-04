@@ -74,7 +74,7 @@ class AdbDevice(Devices):
     
     def screenshot(self, filePath: Path= None):
         
-        save_object = self.screenshot_file
+        save_object = None
         
         if get_config().save_screenshot:
             save_object = PATH_WORKING / f"{self.name}.png"
@@ -83,12 +83,13 @@ class AdbDevice(Devices):
             save_object = filePath
         
         try:
-            self.device.screenshot().save(save_object)
+            self.device.screenshot().save(self.screenshot_file)
+            if save_object:
+                with open(save_object, 'wb') as file:
+                    file.write(self.screenshot_file.getvalue())
+                    return f"对 {self.device.serial} 的截图并保存到了 {save_object}", self.screenshot_file.getvalue()
             
-            if isinstance(save_object, BytesIO):
-                return f"对 {self.device} 进行截图并保存到内存", save_object.getvalue()
+            return f"对 {self.device.serial} 进行截图并保存到内存", self.screenshot_file.getvalue()
             
         except:
-            return f"无法为 {self.device.serial} 截图 请检查设备状态", False
-        else:
-            return f"{self.device} 截图并保存到了 {save_object}"
+            return f"无法为 {self.device.serial} 截图 请检查设备状态", None

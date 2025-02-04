@@ -75,6 +75,11 @@ class Setting(BaseModel):
     mapping: dict = {}
     save_screenshot: bool = False
     scripts_path: list[str] = []
+    web_drivers: dict = {
+        "msedgedriver" : "",
+        "chromedriver" : "",
+        "geckodriver" : ""
+    }
     
     extra: dict = {}
 

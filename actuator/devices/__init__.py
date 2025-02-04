@@ -30,3 +30,4 @@ class DevicesManager:
         
 from .adb import AdbPlatform as AdbPlatform
 from .windows import WindowsPlatform as WindowsPlatform
+from .web import WebDriverPlatform as WebDriverPlatform
