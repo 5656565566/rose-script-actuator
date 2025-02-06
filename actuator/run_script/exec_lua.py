@@ -1,238 +1,273 @@
-from lupa import LuaError
-from typing import Callable, Union
 from pathlib import Path
-
-import lupa
+from typing import Callable, Union, Any
 import time
-import inspect
 
+from lupa.lua54 import LuaRuntime, LuaError
 from log import logger
 
+from model import Tip, Image
 from utils.requests import Requests
 from utils.image import (
-    crop_image,
-    get_image_resolution,
     image_ocr,
     exact_match,
     simple_fuzzy_match,
     fuzzy_match,
     regex_match,
     template_matching,
-    diff_size_template_matching
+    diff_size_template_matching,
 )
-
+from utils.method import dynamic_call
 from consts import devices_manager
 
+
 class VirtualFile:
+    """模拟文件对象用于缓冲输出"""
+    
     def __init__(self):
         self.content = []
-        self.updata_buffer_handler = None
-    
-    def write(self, data):
+        self.updata_buffer_handler: Callable | None = None
+
+    def write(self, data: str) -> bool:
+        """写入数据并触发更新回调"""
         self.content.append(data)
         if self.updata_buffer_handler:
             self.updata_buffer_handler(data)
         return True
 
-    def clear(self):
+    def clear(self) -> None:
+        """清空缓冲区"""
         self.content.clear()
-    
-    def read(self):
+
+    def read(self) -> list[str]:
+        """读取缓冲区内容"""
         return self.content
-    
-    def flush(self):
+
+    def flush(self) -> None:
+        """保持文件接口兼容性"""
         pass
 
-    def close(self):
+    def close(self) -> None:
+        """保持文件接口兼容性"""
         pass
+
 
 class LuaExit(LuaError):
-    ...
+    """自定义Lua退出异常"""
+    pass
+
 
 class LuaPath:
-    def __init__(self, path: Union[str, Path]):
-        self._path = path
-        if isinstance(path, str):
-            self._path = Path(path)
-        
-    def __str__(self):
-        return str(self._path)
+    """Lua路径处理适配器"""
     
-    def add(self, path: str):
+    def __init__(self, path: Union[str, Path]):
+        self._path = Path(path) if isinstance(path, str) else path
+
+    def __str__(self) -> str:
+        return str(self._path)
+
+    def add(self, path: str) -> Path:
+        """拼接路径"""
         self._path = self._path / path
         return self._path
 
-def dynamic_call(func, args):
-    
-    sig = inspect.signature(func)
-    param_info = sig.parameters
-    has_varargs = any(
-        param.kind == inspect.Parameter.VAR_POSITIONAL for param in param_info.values()
-    )
 
-    if has_varargs:
-        return func(*args)
+def python_2_lua(lua_runtime: LuaRuntime, data: Any) -> Any:
+    """Python对象转Lua表格"""
+    if isinstance(data, (tuple, list, set)):
+        table = lua_runtime.table()
+        for i, item in enumerate(data, start=1):
+            table[i] = item
+        return table
 
-    flat_args = []
-    for arg in args:
-        if isinstance(arg, (list, set)):
-            flat_args.extend(arg)
-        
-        else:
-            flat_args.append(arg)
-    
-    param_names = list(param_info.keys())
-    required_params = [
-        p for p in param_info.values() if p.default == inspect.Parameter.empty
-    ]
-    if len(flat_args) < len(required_params):
-        raise Exception(
-            f"参数不足，函数 {func.__name__} 需要至少 {len(required_params)} 个参数，实际传入 {len(flat_args)} 个参数"
-        )
+    if isinstance(data, dict):
+        table = lua_runtime.table()
+        for key, value in data.items():
+            table[key] = value
+        return table
 
-    bound_args = {}
-    for i, param_name in enumerate(param_names):
-        if i < len(flat_args):
-            bound_args[param_name] = flat_args[i]
-        elif param_info[param_name].default != inspect.Parameter.empty:
-            bound_args[param_name] = param_info[param_name].default
-        else:
-            raise Exception(f"参数 {param_name} 未传入且无默认值")
+    return data
 
-    result = func(**bound_args)
-    
-    if isinstance(result, list):
-        return tuple(result)
-    
-    return result
 
-def output_result(output, callable: Callable):
-    def wrapper(*args, **kwargs):
-        result = dynamic_call(callable, args)
-        if isinstance(result, tuple):
-            output(result[0])
-            return result[1:]
-        else:
-            output(result)
-            
+def output_fix(lua_runtime: LuaRuntime, func: Callable) -> Callable:
+    """返回值自动转换装饰器"""
+    def wrapper(*args):
+        results = func(*args)
+        return python_2_lua(lua_runtime, results)
     return wrapper
 
+
+def output_result(output: Callable, func: Callable, lua_runtime: LuaRuntime) -> Callable:
+    """输出结果处理装饰器"""
+    def wrapper(*args):
+        results = dynamic_call(func, args)
+
+        if isinstance(results, tuple):
+            tips = []
+            other_results = []
+            for result in results:
+                if isinstance(result, Tip):
+                    tips.append(result)
+                else:
+                    other_results.append(result)
+
+            for tip in tips:
+                output(tip)
+
+            if not other_results:
+                return None
+            return other_results[0] if len(other_results) == 1 else python_2_lua(lua_runtime, other_results)
+
+        if isinstance(results, Tip):
+            output(results)
+            return None
+
+        return results
+    return wrapper
+
+
 class LuaDevice:
-    def __init__(self, device, output):
+    """Lua设备操作适配器"""
+    
+    def __init__(self, device: Any, output: Callable, lua_runtime: LuaRuntime):
         self.device = device
         self.output = output
-    
-    def update_device(self, device):
-        self.device = device
-    
-    def __getitem__(self, name: str):
-        
-        if not self.device:
-            raise LuaError("请先使用 select_device 选择设备 !")
-        
-        if not hasattr(self.device, name):
-            raise LuaError(f"设备不存在 {name} 操作 !")
-        
-        return output_result(self.output, getattr(self.device, name))
+        self.lua_runtime = lua_runtime
 
-class LuaImage:
+    def update_device(self, device: Any) -> None:
+        """更新当前设备"""
+        self.device = device
+
+    def __getitem__(self, name: str) -> Callable:
+        """获取设备操作方法"""
+        if not self.device:
+            raise LuaError("请先使用 select_device 选择设备!")
+
+        if not hasattr(self.device, name):
+            raise LuaError(f"设备不存在 {name} 操作!")
+
+        return output_result(self.output, getattr(self.device, name), self.lua_runtime)
+
+
+class LuaImage(Image):
+    """Lua图像处理适配器"""
     
-    function_maps = {
-        "crop_image": crop_image,
-        "get_image_resolution": get_image_resolution,
-        "ocr": image_ocr,
-        "exact_match": exact_match,
-        "simple_fuzzy_match": simple_fuzzy_match,
-        "fuzzy_match": fuzzy_match,
-        "regex_match": regex_match,
-        "template_matching": template_matching,
-        "diff_size_template_matching": diff_size_template_matching,
-    }
-    
-    def __getitem__(self, name: str):
-        
+    def __init__(self, path: Path, lua_runtime: LuaRuntime):
+        super().__init__()
+        self.path = path
+        self.lua_runtime = lua_runtime
+        self.function_maps = {
+            "ocr": image_ocr,
+            "exact_match": exact_match,
+            "simple_fuzzy_match": simple_fuzzy_match,
+            "fuzzy_match": fuzzy_match,
+            "regex_match": regex_match,
+            "template_matching": template_matching,
+            "diff_size_template_matching": diff_size_template_matching,
+            "open": self._open,
+            "crop": self.crop,
+        }
+
+    def _open(self, path: str) -> Image | None:
+        """打开图像文件"""
+        potential_paths = [Path(path), Path(self.path, path)]
+        _path = next((p for p in potential_paths if p.exists()), None)
+        return self.open(_path) if _path else None
+
+    def __getitem__(self, name: str) -> Any:
+        """获取图像处理方法或属性"""
         if func := self.function_maps.get(name):
-            return func
-        
-        raise LuaError(f"Image 不存在 {name} 操作 !")
+            return output_fix(self.lua_runtime, func)
+
+        if name == "resolution":
+            return self.resolution
+
+        raise LuaError(f"Image 不存在 {name} 操作!")
+
 
 class LuaScriptRuntime:
+    """Lua脚本运行时管理器"""
     
-    def output_handler(self, message: str = ""):
-        """打印的映射"""
-        self.buffer.write(f"{message}\n")
-    
-    def print_handler(self, *args):
-        self.output_handler(" ".join(map(str, args)))
-    
-    def user_input_handler(self, prompt: str = "", description: str = ""):
-        if self.user_input_callback is None:
-            self.notify_handler("脚本使用了用户输入, 但当前运行环境不支持 !")
-            return
-        
-        user_input = self.user_input_callback(prompt, description)
-        return user_input
-    
-    def sleep_handler(self, seconds: float = 1.0):
-        time.sleep(seconds)
-    
-    def stop_handler(self, message: str = ""):
-        raise LuaExit(message)
-    
-    def notify_handler(self, message: str):
-        if self.notify is None:
-            return
-        
-        self.notify(message)
-
     def __init__(
         self,
-        user_input_callback: Callable = None,
-        notify: Callable = None,
+        user_input_callback: Callable | None = None,
+        notify: Callable | None = None,
     ):
         self.buffer = VirtualFile()
         self.user_input_callback = user_input_callback
         self.notify = notify
-    
-    def set_updata_buffer_handler(self, handler: Callable):
+        self.lua: LuaRuntime | None = None
+        self.path: Path | None = None
+
+    def output_handler(self, message: str = "") -> None:
+        """输出处理器"""
+        self.buffer.write(f"{message}\n")
+
+    def print_handler(self, *args) -> None:
+        """打印处理器"""
+        self.output_handler(" ".join(map(str, args)))
+
+    def user_input_handler(self, prompt: str = "", description: str = "") -> Any:
+        """用户输入处理器"""
+        if self.user_input_callback is None:
+            self.notify_handler("脚本使用了用户输入, 但当前运行环境不支持!")
+            return ""
+        return self.user_input_callback(prompt, description)
+
+    @staticmethod
+    def sleep_handler(seconds: float = 1.0) -> None:
+        """休眠处理器"""
+        time.sleep(seconds)
+
+    def stop_handler(self, message: str = "") -> None:
+        """停止脚本处理器"""
+        raise LuaExit(message)
+
+    def notify_handler(self, message: str) -> None:
+        """通知处理器"""
+        if self.notify:
+            self.notify(message)
+
+    def set_updata_buffer_handler(self, handler: Callable) -> None:
+        """设置缓冲区更新回调"""
         self.buffer.updata_buffer_handler = handler
-    
-    def register_func(self):
-        self.lua.globals()["Requests"] = Requests
-    
-    def select_device(self, name: str):
+
+    def select_device(self, name: str) -> None:
+        """选择设备"""
         devices_manager.init_platforms()
         devices_manager.select_devices(name)
-        
-        if devices_manager.device == None:
+        if devices_manager.device is None:
             self.notify(f"尝试切换设备 {name} 但它不存在", title="一个脚本执行错误", severity="error")
-        
-        self.lua.globals()["device"].update_device(devices_manager.device)
-    
-    def init_lua(self):
-        self.lua = lupa.LuaRuntime()
+        self.lua.globals()["Device"].update_device(devices_manager.device)
 
+    def lua_table(self, python_list: list) -> Any:
+        """Python列表转Lua表格"""
+        return python_2_lua(self.lua, python_list)
+
+    def init_lua(self, path: str) -> None:
+        """初始化Lua环境"""
+        self.path = Path(path).parent
+        self.lua = LuaRuntime()
         self.buffer.clear()
-        
-        self.lua.globals()["print"] = self.print_handler
-        self.lua.globals()["input"] = self.user_input_handler
-        self.lua.globals()["notify"] = self.notify_handler if self.notify is not None else self.output_handler
-        self.lua.globals()["clear_buffer"] = self.buffer.clear
-        self.lua.globals()["work_path"] = LuaPath(Path.cwd())
-        self.lua.globals()["path"] = LuaPath
-        
-        self.lua.globals()["exit"] = self.stop_handler
-        
-        self.lua.globals()["python_buffer_file"] = self.buffer
-        self.lua.globals()["sleep"] = self.sleep_handler
-        
-        self.lua.globals()["select_device"] = self.select_device
-        self.lua.globals()["device"] = LuaDevice(None, self.output_handler)
-        self.lua.globals()["image"] = LuaImage()
-        
-        self.register_func()
 
-        self.lua.execute("""
+        globals_table = self.lua.globals()
+        
+        globals_table["print"] = self.print_handler
+        globals_table["input"] = self.user_input_handler
+        globals_table["notify"] = self.notify_handler if self.notify else self.output_handler
+        globals_table["clear_buffer"] = self.buffer.clear
+        globals_table["work_path"] = LuaPath(self.path)
+        globals_table["Path"] = LuaPath
+        globals_table["lua_table"] = self.lua_table
+        globals_table["exit"] = self.stop_handler
+        globals_table["python_buffer_file"] = self.buffer
+        globals_table["sleep"] = self.sleep_handler
+        globals_table["select_device"] = self.select_device
+        globals_table["Device"] = LuaDevice(None, self.output_handler, self.lua)
+        globals_table["Image"] = LuaImage(self.path, self.lua)
+        globals_table["Requests"] = Requests
+        
+        self.lua.execute(
+        """
             local original_io_write = io.write
             local original_io_output = io.output
             local original_default_output = original_io_output()
@@ -258,38 +293,30 @@ class LuaScriptRuntime:
                     return original_io_write(...)
                 end
             end
-        """)
-    
-    def run(self, script: str):
-        """调度 lua 脚本"""
-        
+        """
+        )
+
+    def run(self, script: str) -> str | Exception | None:
+        """执行Lua脚本"""
         try:
             result = self.lua.execute(script)
-        except LuaError as e:
-            error_msg = str(e).split(':')[2:]
-            error_msg = "".join(str(e).split(':')[2:])
-            
-            error_msg = (
-                "你的脚本存在错误 !\n"
-                f"错误信息：行数: {error_msg}\n"
-            )
-            self.output_handler(error_msg)
-            return f"脚本语法错误 {e}"
-        
-        except LuaExit as e:
-            return None
-        
-        except Exception as e:
-            #import traceback
-            #logger.error(f"发生错误 {e.args[0]}")
-            #error_message = "".join(traceback.format_exception(e))
-            #logger.debug(error_message)
-            
-            self.output_handler("本程序异常 !")
-            self.output_handler(f"错误 {e if str(e) else '未知错误'}")
-            return e if str(e) else "未知错误"
-        
-        else:
             if result not in [0, None]:
                 self.output_handler(f"程序返回 {result}")
-                return None
+            return None
+
+        except LuaExit as e:
+            return None
+
+        except LuaError as e:
+            error_msg = "".join(str(e).split(':')[2:])
+            formatted_error = f"你的脚本存在错误!\n错误信息：行数: {error_msg}\n"
+            self.output_handler(formatted_error)
+            return f"脚本语法错误 {e}"
+
+        except Exception as e:
+            logger.error(f"发生错误 {e.args[0]}")
+            import traceback
+            logger.debug("".join(traceback.format_exception(e)))
+            self.output_handler("本程序异常!")
+            self.output_handler(f"错误 {e if str(e) else '未知错误'}")
+            return e if str(e) else "未知错误"

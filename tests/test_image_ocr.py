@@ -19,7 +19,6 @@ def open_image(image_path: Path) -> bytes:
     with open(image_path, "rb") as img_file:
         image_bytes = img_file.read()
 
-
     return image_bytes
 
 @pytest.fixture
@@ -28,9 +27,6 @@ def result():
 
 class TestOcr:
     def test_image_ocr(self, result):
-        
-        print(result[0])
-        
         assert len(result) > 0, "OCR 识别失败"
 
     def test_exact_match(self, result):

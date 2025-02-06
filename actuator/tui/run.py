@@ -375,7 +375,7 @@ class RunScreen(Screen):
         if code := self.get_code(path):
             
             if "lua" in _path.name:
-                self.lua.init_lua()
+                self.lua.init_lua(path)
                 self.script_tasks[path] = self.run_lua_scripts(code, _path.name, path)
                 
             if "txt" in _path.name:

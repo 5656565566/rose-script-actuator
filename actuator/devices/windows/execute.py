@@ -12,6 +12,7 @@ from typing import Optional, Union
 from base import Devices
 from config import get_config, PATH_WORKING
 from log import logger
+from model import Tip, Image
 
 import psutil
 import subprocess
@@ -157,19 +158,19 @@ class WindowsDevice(Devices):
         y = y + (self._offset(5) if self.random else 0)
         
         pydirectinput.click(x, y, button=key)
-        return f"Windows 点击位置 {x} {y}"
+        return Tip(f"Windows 点击位置 {x} {y}")
     
     def mouseClick(self, key: str) -> int:
         pyautogui.click(button=key)
-        return f"点击鼠标按钮: {key}"
+        return Tip(f"点击鼠标按钮: {key}")
     
     def gameMouseClick(self, key: str) -> int:
         pydirectinput.click(button=key)
-        return f"点击鼠标按钮: {key}"
+        return Tip(f"点击鼠标按钮: {key}")
     
     def getMouse(self) -> int:
         x, y = pyautogui.position()
-        return f"当前鼠标位置: ({x}, {y})", x, y
+        return Tip(f"当前鼠标位置: ({x}, {y})"), x, y
     
     def doubleClick(self, key: str = None) -> int:
         
@@ -180,7 +181,7 @@ class WindowsDevice(Devices):
         y = y + (self._offset(5) if self.random else 0)
 
         pyautogui.doubleClick(x, y, button=key)
-        return f"Windows 双击位置 {x} {y}"
+        return Tip(f"Windows 双击位置 {x} {y}")
     
     def gameDoubleClick(self, key: str = None) -> int:
         
@@ -191,7 +192,7 @@ class WindowsDevice(Devices):
         y = y + (self._offset(5) if self.random else 0)
 
         pydirectinput.doubleClick(x, y, button=key)
-        return f"Windows 双击位置 {x} {y}"
+        return Tip(f"Windows 双击位置 {x} {y}")
     
     def click(self, x: int, y: int, key: str = None) -> int:
 
@@ -202,7 +203,7 @@ class WindowsDevice(Devices):
         y = y + (self._offset(5) if self.random else 0)
         
         pyautogui.click(x, y, button=key)
-        return f"Windows 点击位置 {x} {y}"
+        return Tip(f"Windows 点击位置 {x} {y}")
     
     def textInput(self, text: Union[str, list]):
         
@@ -216,7 +217,7 @@ class WindowsDevice(Devices):
         if isinstance(text, list):
             text = "".join(text)
         
-        return f"windows 输入文本 {text}"
+        return Tip(f"windows 输入文本 {text}")
     
     def gameSwipe(self, x1: int, y1: int, x2: int, y2: int, time: float) -> int:
         if isinstance(x1, list):
@@ -233,7 +234,7 @@ class WindowsDevice(Devices):
         pydirectinput.moveTo(x2, y1, duration=time / 1000)
         pydirectinput.mouseUp(button="left")
         
-        return f"Windows 鼠标滑动 {x1} {y1} => {x2} {y2} 耗时 {time}"
+        return Tip(f"Windows 鼠标滑动 {x1} {y1} => {x2} {y2} 耗时 {time}")
     
     def swipe(self, x1: int, y1: int, x2: int, y2: int, time: float) -> int:
 
@@ -251,36 +252,36 @@ class WindowsDevice(Devices):
         pyautogui.moveTo(x2, y1, duration=time / 1000)
         pyautogui.mouseUp(button="left")
         
-        return f"Windows 鼠标滑动 {x1} {y1} => {x2} {y2} 耗时 {time}"
+        return Tip(f"Windows 鼠标滑动 {x1} {y1} => {x2} {y2} 耗时 {time}")
     
     def gameKeyevent(self, key_id: str, time: int = 0) -> int:
         if time == 0:
             pydirectinput.press(key_id)
-            return f"Windows 单击按键 {key_id}"
+            return Tip(f"Windows 单击按键 {key_id}")
         
         else:
             pydirectinput.keyDown(key_id)
             sleep(time)
             pydirectinput.keyUp(key_id)
-            return f"Windows 按住按键 {key_id} 耗时 {time}"
+            return Tip(f"Windows 按住按键 {key_id} 耗时 {time}")
             
         
     
     def keyevent(self, key_id: str, time: int = 0) -> int:
         if time == 0:
             pyautogui.press(key_id)
-            return f"Windows 单击按键 {key_id}"
+            return Tip(f"Windows 单击按键 {key_id}")
         
         else:
             pyautogui.keyDown(key_id)
             sleep(time)
             pyautogui.keyUp(key_id)
-            return f"Windows 按住按键 {key_id} 耗时 {time}"
+            return Tip(f"Windows 按住按键 {key_id} 耗时 {time}")
 
     
     def hotkey(self, *hotkey):
         pyautogui.hotkey(hotkey)
-        return f"Windows 按组合键 {hotkey}"
+        return Tip(f"Windows 按组合键 {hotkey}")
     
     def shell(self, cmd: str):
         try:
@@ -292,7 +293,7 @@ class WindowsDevice(Devices):
     def activateWindow(self, name: str):
         
         if not self.applications.get(name):
-            return f"Windows 未找到窗口 {name}"
+            return Tip(f"Windows 未找到窗口 {name}")
         
         application = self.applications.get(name)
         
@@ -300,16 +301,19 @@ class WindowsDevice(Devices):
     
         window.activate()
         
-        return f"Windows 切换到窗口 {name}"
+        return Tip(f"Windows 切换到窗口 {name}")
     
     def get_all_windows_titles(self):
         return gw.getAllTitles()
     
-    def get_screenshot(self) -> bytes:
-        return self.screenshot_file.getvalue()
+    def get_screenshot(self) -> Image:
+        return Image(self.screenshot_file.getvalue())
     
-    def screenshot(self, filePath: Path= None) -> Path:
+    def screenshot(self, filePath: Path= None):
         save_object = None
+        
+        self.screenshot_file.seek(0)
+        self.screenshot_file.truncate(0)
         
         if get_config().save_screenshot:
             save_object = PATH_WORKING / "windows.png"
@@ -318,13 +322,14 @@ class WindowsDevice(Devices):
             save_object = filePath
         
         try:
-            screenshot = pyautogui.screenshot(self.screenshot_file)
+            screenshot = pyautogui.screenshot()
+            screenshot.save(self.screenshot_file, format= "PNG")
             
             if save_object:
-                screenshot.save(save_object, "png")
-                return f"对 Windows 截图并保存到 {save_object}", self.screenshot_file.getvalue()
+                screenshot.save(save_object, format=screenshot.format)
+                return Tip(f"对 Windows 截图并保存到 {save_object}"), self.get_screenshot()
             
-            return f"对 Windows 的截图并保存到了 {save_object}", self.screenshot_file.getvalue()
+            return Tip(f"对 Windows 的截图并保存到了内存"), self.get_screenshot()
         
         except Exception as e:
-            return f"无法为 Windows 设备 截图 请检查设备状态 {e}", False
+            return Tip(f"无法为 Windows 设备 截图 请检查设备状态 {e}")

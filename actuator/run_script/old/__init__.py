@@ -1,14 +1,27 @@
 from pathlib import Path
 from typing import Callable
 
-import copy, time, inspect
+import copy, time
 
 from log import logger
 from config import get_config
 from consts import devices_manager
-from utils.file import FileHelper
+from model import Tip, Image
 
-from .model import *
+from utils.requests import Requests
+from utils.image import (
+    image_ocr,
+    exact_match,
+    simple_fuzzy_match,
+    fuzzy_match,
+    regex_match,
+    template_matching,
+    diff_size_template_matching,
+)
+from utils.file import FileHelper
+from utils.method import dynamic_call
+
+from .ast import *
 
 def is_float(s):
     try:
@@ -424,65 +437,6 @@ def is_nested(args):
         return any(isinstance(item, (list, tuple)) for item in args)
     return False
 
-
-def dynamic_call(func, args):
-    
-    sig = inspect.signature(func)
-    param_info = sig.parameters
-    has_varargs = any(
-        param.kind == inspect.Parameter.VAR_POSITIONAL for param in param_info.values()
-    )
-
-    if has_varargs:
-        return func(*args)
-
-    flat_args = []
-    for arg in args:
-        if isinstance(arg, (list, set)):
-            flat_args.extend(arg)
-        
-        elif isinstance(arg, Point):
-            flat_args.extend([arg.x, arg.y])
-        
-        else:
-            flat_args.append(arg)
-    
-    param_names = list(param_info.keys())
-    required_params = [
-        p for p in param_info.values() if p.default == inspect.Parameter.empty
-    ]
-    if len(flat_args) < len(required_params):
-        raise Exception(
-            f"参数不足，函数 {func.__name__} 需要至少 {len(required_params)} 个参数，实际传入 {len(flat_args)} 个参数"
-        )
-
-    bound_args = {}
-    for i, param_name in enumerate(param_names):
-        if i < len(flat_args):
-            bound_args[param_name] = flat_args[i]
-        elif param_info[param_name].default != inspect.Parameter.empty:
-            bound_args[param_name] = param_info[param_name].default
-        else:
-            raise Exception(f"参数 {param_name} 未传入且无默认值")
-
-    result = func(**bound_args)
-    
-    if isinstance(result, list):
-        return tuple(result)
-    
-    return result
-
-def output_result(output, callable: Callable):
-    def wrapper(*args, **kwargs):
-        result = callable(*args, **kwargs)
-        if isinstance(result, tuple):
-            output(result[0])
-            return result[1:]
-        else:
-            output(result)
-            
-    return wrapper
-
 def pathSplicing(*paths: list) -> str:
     """路径拼接"""
     paths = [str(path) for path in paths]
@@ -515,8 +469,23 @@ class InternalMethods:
             "folderCreate" : FileHelper.folder_create,
             "pathSplicing" : pathSplicing,
             "formatString" : formatString,
-            
+            "openImage" : self._open,
+            "cropImage" : Image.crop,
+            "resolutionImage" : Image.get_resolution,
+            "ocr": image_ocr,
+            "exact_match": exact_match,
+            "simple_fuzzy_match": simple_fuzzy_match,
+            "fuzzy_match": fuzzy_match,
+            "regex_match": regex_match,
+            "template_matching": template_matching,
+            "diff_size_template_matching": diff_size_template_matching,
         }
+    
+    def _open(self, path: str) -> Image | None:
+        """打开图像文件"""
+        potential_paths = [Path(path), Path(self.path, path)]
+        _path = next((p for p in potential_paths if p.exists()), None)
+        return Image().open(_path) if _path else None
     
     def select_device(self, name: str):
         devices_manager.init_platforms()
@@ -536,7 +505,7 @@ class InternalMethods:
             raise RunException("请先使用 call select_device(设备名称) 选择设备 !")
         
         if hasattr(self.device, name):
-            return output_result(self.output, getattr(self.device, name))
+            return getattr(self.device, name)
         
         raise RunException(f"设备不存在 {name} 操作 !")
 
@@ -622,8 +591,18 @@ class Interpreter:
 
         if isinstance(node, Print):
             value = self.visit(node.value)
-            self.updata_buffer_handler(f"{value}\n")
-            logger.debug(f"脚本打印: {value}")
+            
+            message = ""
+            
+            if isinstance(value, tuple):
+                for item in value:
+                    message += str(item)
+                    
+            else:
+                message += str(value)
+            
+            self.updata_buffer_handler(f"{message}\n")
+            logger.debug(f"脚本打印: {message}")
             return
 
         if isinstance(node, Sleep):
@@ -708,9 +687,13 @@ class Interpreter:
         func_name = mapping.get(node.func_name, node.func_name)
         
         if func := self.internal_methods.get(func_name):
-            args = [self.visit(arg) for arg in node.args]
+            args = tuple(self.visit(arg) for arg in node.args)
             try:
-                dynamic_call(func, args)
+                results = dynamic_call(func, args)
+                
+                for result in results:
+                    if isinstance(result, Tip):
+                        self.updata_buffer_handler(f"{result}\n")
                     
             except Exception as e:
                 logger.warning(f"函数 {node.func_name} 执行错误 {e}!")
@@ -895,13 +878,38 @@ class Interpreter:
         
         if node.function and (func := self.internal_methods.get(func_name)):
             
-            args = [self.visit(arg) for arg in node.function.args]
+            args = tuple(self.visit(arg) for arg in node.function.args)
             try:
-                result = dynamic_call(func, args)
-                self.set_variables(node.var_name, result)
-                return result
+                results = dynamic_call(func, args)
+                
+                if isinstance(results, tuple):
+                    tips = []
+                    other_results = []
+                    for result in results:
+                        if isinstance(result, Tip):
+                            tips.append(result)
+                        else:
+                            other_results.append(result)
+
+                    for tip in tips:
+                        self.updata_buffer_handler(f"{tip}\n")
+                        
+                        
+                    if not other_results:
+                        return None
+                    
+                    other_results = tuple(other_results)
+                    
+                else:
+                    other_results = results
+                
+                self.set_variables(node.var_name, other_results)
+                return other_results
             except Exception as e:
+                import traceback
                 logger.warning(f"函数 {node.function.func_name} 执行错误: {e}")
+                error_message = "".join(traceback.format_exception(e))
+                logger.debug(error_message)
                 return None
             
         logger.warning(f"不存在的函数 {node.function.func_name}")
