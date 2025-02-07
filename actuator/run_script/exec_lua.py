@@ -21,33 +21,27 @@ from consts import devices_manager
 
 
 class VirtualFile:
-    """模拟文件对象用于缓冲输出"""
     
     def __init__(self):
         self.content = []
         self.updata_buffer_handler: Callable | None = None
 
     def write(self, data: str) -> bool:
-        """写入数据并触发更新回调"""
         self.content.append(data)
         if self.updata_buffer_handler:
             self.updata_buffer_handler(data)
         return True
 
     def clear(self) -> None:
-        """清空缓冲区"""
         self.content.clear()
 
     def read(self) -> list[str]:
-        """读取缓冲区内容"""
         return self.content
 
     def flush(self) -> None:
-        """保持文件接口兼容性"""
         pass
 
     def close(self) -> None:
-        """保持文件接口兼容性"""
         pass
 
 
@@ -295,7 +289,7 @@ class LuaScriptRuntime:
             end
         """
         )
-
+    
     def run(self, script: str) -> str | Exception | None:
         """执行Lua脚本"""
         try:

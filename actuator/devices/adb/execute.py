@@ -62,7 +62,6 @@ class AdbDevice(Devices):
         
         return Tip(f"{self.device} 执行 命令 {cmd}", self.device.shell(cmd, timeout=2))
     
-    
     def appName(self):
         """前台APP名"""
         
